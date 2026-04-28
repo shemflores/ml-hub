@@ -1,6 +1,9 @@
 import Link from 'next/link'
 
 export default function Home() {
+  console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
   return (
     <main style={styles.container}>
       <div style={styles.hero}>
@@ -36,16 +39,13 @@ const styles = {
   },
   subtitle: {
     fontSize: '18px',
-    color: '#555',
-    marginBottom: '30px',
+    marginBottom: '20px',
   },
   link: {
-    display: 'inline-block',
-    padding: '12px 24px',
+    padding: '10px 20px',
     backgroundColor: '#000',
     color: '#fff',
-    borderRadius: '8px',
     textDecoration: 'none',
-    fontSize: '16px',
+    borderRadius: '5px',
   },
 }
