@@ -12,9 +12,15 @@ export default function Home() {
           A simple platform to explore machine learning tools.
         </p>
 
-        <Link href="/auth" style={styles.link}>
-          Get Started
-        </Link>
+        <div style={styles.buttonGroup}>
+          <Link href="/login">
+            <span style={styles.link}>Login</span>
+          </Link>
+
+          <Link href="/signup">
+            <span style={styles.link}>Sign Up</span>
+          </Link>
+        </div>
       </div>
     </main>
   )
@@ -41,11 +47,17 @@ const styles = {
     fontSize: '18px',
     marginBottom: '20px',
   },
+  buttonGroup: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'center',
+  },
   link: {
     padding: '10px 20px',
     backgroundColor: '#000',
     color: '#fff',
     textDecoration: 'none',
     borderRadius: '5px',
+    cursor: 'pointer',
   },
 }
