@@ -1,10 +1,14 @@
+'use client'
+
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useRouter } from 'next/navigation'
 
 export default function Auth() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
+  const router = useRouter()
 
   const signUp = async () => {
     const { error } = await supabase.auth.signUp({
@@ -12,8 +16,11 @@ export default function Auth() {
       password,
     })
 
-    if (error) setMessage(error.message)
-    else setMessage('Sign-up successful! Check your email.')
+    if (error) {
+      setMessage(error.message)
+    } else {
+      setMessage('Sign-up successful!')
+    }
   }
 
   const login = async () => {
@@ -22,14 +29,18 @@ export default function Auth() {
       password,
     })
 
-    if (error) setMessage(error.message)
-    else setMessage('Login successful!')
+    if (error) {
+      setMessage(error.message)
+    } else {
+      setMessage('Login successful!')
+      router.push('/dashboard')
+    }
   }
 
   return (
     <main style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>Login / Sign-Up</h2>
+        <h2>Login / Sign-Up</h2>
 
         <input
           style={styles.input}
@@ -45,17 +56,17 @@ export default function Auth() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <div style={styles.buttonGroup}>
-          <button style={styles.primaryBtn} onClick={signUp}>
+        <div style={styles.buttons}>
+          <button style={styles.primary} onClick={signUp}>
             Sign Up
           </button>
 
-          <button style={styles.secondaryBtn} onClick={login}>
+          <button style={styles.secondary} onClick={login}>
             Login
           </button>
         </div>
 
-        <p style={styles.message}>{message}</p>
+        <p>{message}</p>
       </div>
     </main>
   )
@@ -67,19 +78,15 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-    fontFamily: 'Arial, sans-serif',
+    background: '#f9f9f9',
   },
   card: {
+    background: '#fff',
     padding: '30px',
     borderRadius: '10px',
-    backgroundColor: '#fff',
     boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
     width: '300px',
     textAlign: 'center',
-  },
-  title: {
-    marginBottom: '20px',
   },
   input: {
     width: '100%',
@@ -88,31 +95,23 @@ const styles = {
     borderRadius: '6px',
     border: '1px solid #ddd',
   },
-  buttonGroup: {
+  buttons: {
     display: 'flex',
-    justifyContent: 'space-between',
     gap: '10px',
   },
-  primaryBtn: {
+  primary: {
     flex: 1,
     padding: '10px',
-    backgroundColor: 'black',
+    background: 'black',
     color: 'white',
     border: 'none',
     borderRadius: '6px',
-    cursor: 'pointer',
   },
-  secondaryBtn: {
+  secondary: {
     flex: 1,
     padding: '10px',
-    backgroundColor: '#eee',
+    background: '#eee',
     border: 'none',
     borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  message: {
-    marginTop: '15px',
-    color: '#555',
-    fontSize: '14px',
   },
 }
