@@ -8,39 +8,56 @@ export default function Articles() {
   const [articles, setArticles] = useState([]);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [commentInputs, setCommentInputs] = useState({});
   const [comments, setComments] = useState({});
 
   useEffect(() => {
-    const init = async () => {
-      await getUser();
-      await fetchArticles();
-    };
     init();
   }, []);
 
-  // ✅ GET USER
-  const getUser = async () => {
+  const init = async () => {
     const { data } = await supabase.auth.getUser();
-    if (!data.user) window.location.href = "/login";
-    else setUser(data.user);
+    if (!data.user) {
+      window.location.href = "/login";
+      return;
+    }
+    setUser(data.user);
+    await fetchArticles();
   };
 
-  // ✅ FETCH ARTICLES + LIKE COUNT
+  // ✅ FORMAT TIME
+  const formatTime = (time) => {
+    if (!time) return "";
+    return new Date(time).toLocaleString();
+  };
+
+  // ✅ FETCH ARTICLES + LIKES + COMMENTS
   const fetchArticles = async () => {
     const { data, error } = await supabase
       .from("articles")
       .select(`
         *,
-        likes(count)
+        likes(user_id),
+        comments(*)
       `)
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error(error);
+      alert(error.message);
       return;
     }
 
     setArticles(data || []);
+
+    const grouped = {};
+    data.forEach((a) => {
+      grouped[a.id] = (a.comments || []).sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+    });
+
+    setComments(grouped);
   };
 
   // ✅ CREATE ARTICLE
@@ -56,8 +73,7 @@ export default function Articles() {
     ]);
 
     if (error) {
-      console.error(error);
-      alert("Failed to post");
+      alert(error.message);
       return;
     }
 
@@ -66,7 +82,7 @@ export default function Articles() {
     fetchArticles();
   };
 
-  // ✅ DELETE ARTICLE (OWNER ONLY via RLS)
+  // ✅ DELETE ARTICLE
   const deleteArticle = async (id) => {
     const { error } = await supabase
       .from("articles")
@@ -74,62 +90,89 @@ export default function Articles() {
       .eq("id", id);
 
     if (error) {
-      console.error(error);
-      alert("Delete failed");
+      alert(error.message);
       return;
     }
 
     fetchArticles();
   };
 
-  // ✅ LIKE ARTICLE (ONE LIKE PER USER)
-  const likeArticle = async (article) => {
+  // ✅ LIKE / UNLIKE
+  const toggleLike = async (article) => {
     if (!user) return;
 
-    // check if already liked
-    const { data: existing } = await supabase
-      .from("likes")
-      .select("*")
-      .eq("article_id", article.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const liked = article.likes?.some(
+      (l) => l.user_id === user.id
+    );
 
-    if (existing) {
-      alert("Already liked");
-      return;
+    if (liked) {
+      const { error } = await supabase
+        .from("likes")
+        .delete()
+        .eq("article_id", article.id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+    } else {
+      const { error } = await supabase.from("likes").insert([
+        {
+          article_id: article.id,
+          user_id: user.id,
+        },
+      ]);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
     }
 
-    const { error } = await supabase.from("likes").insert([
+    fetchArticles();
+  };
+
+  // ✅ ADD COMMENT
+  const addComment = async (articleId) => {
+    const text = commentInputs[articleId];
+    if (!text || !user) return;
+
+    const { error } = await supabase.from("comments").insert([
       {
-        article_id: article.id,
+        content: text,
+        article_id: articleId,
         user_id: user.id,
       },
     ]);
 
     if (error) {
-      console.error(error);
-      alert("Like failed");
+      alert(error.message);
+      return;
+    }
+
+    setCommentInputs((prev) => ({ ...prev, [articleId]: "" }));
+    fetchArticles();
+  };
+
+  // ✅ DELETE COMMENT
+  const deleteComment = async (commentId) => {
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      alert(error.message);
       return;
     }
 
     fetchArticles();
   };
 
-  // ✅ LOCAL COMMENTS (still frontend only)
-  const addComment = (id, text) => {
-    if (!text) return;
-
-    setComments((prev) => ({
-      ...prev,
-      [id]: [...(prev[id] || []), text],
-    }));
-  };
-
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        
-        {/* 🔙 BACK BUTTON */}
         <button
           onClick={() => (window.location.href = "/dashboard")}
           style={styles.back}
@@ -159,51 +202,84 @@ export default function Articles() {
         </div>
 
         {/* LIST */}
-        {articles.map((article) => (
-          <div key={article.id} style={styles.post}>
-            <h3>{article.title}</h3>
-            <p>{article.content}</p>
+        {articles.map((article) => {
+          const likeCount = article.likes?.length || 0;
+          const liked = article.likes?.some(
+            (l) => l.user_id === user?.id
+          );
 
-            {/* ACTIONS */}
-            <div style={styles.actions}>
-              <button
-                onClick={() => likeArticle(article)}
-                style={styles.likeBtn}
-              >
-                ❤️ {article.likes?.[0]?.count || 0}
-              </button>
+          return (
+            <div key={article.id} style={styles.post}>
+              <h3>{article.title}</h3>
 
-              {user?.id === article.user_id && (
+              {/* 🕒 ARTICLE TIME */}
+              <p style={styles.time}>
+                {formatTime(article.created_at)}
+              </p>
+
+              <p>{article.content}</p>
+
+              {/* ACTIONS */}
+              <div style={styles.actions}>
                 <button
-                  onClick={() => deleteArticle(article.id)}
-                  style={styles.delete}
+                  onClick={() => toggleLike(article)}
+                  disabled={!user}
                 >
-                  Delete
+                  {liked ? "💔 Unlike" : "❤️ Like"} ({likeCount})
                 </button>
-              )}
-            </div>
 
-            {/* COMMENTS (frontend only) */}
-            <div style={styles.commentBox}>
-              <input
-                placeholder="Write a comment..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    addComment(article.id, e.target.value);
-                    e.target.value = "";
+                {user && user.id === article.user_id && (
+                  <button
+                    onClick={() => deleteArticle(article.id)}
+                    style={styles.delete}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+
+              {/* COMMENTS */}
+              <div style={styles.commentBox}>
+                <input
+                  placeholder="Write a comment..."
+                  value={commentInputs[article.id] || ""}
+                  onChange={(e) =>
+                    setCommentInputs((prev) => ({
+                      ...prev,
+                      [article.id]: e.target.value,
+                    }))
                   }
-                }}
-                style={styles.commentInput}
-              />
+                  style={styles.commentInput}
+                />
+                <button onClick={() => addComment(article.id)}>
+                  Add
+                </button>
 
-              {(comments[article.id] || []).map((c, i) => (
-                <p key={i} style={styles.comment}>
-                  💬 {c}
-                </p>
-              ))}
+                {(comments[article.id] || []).map((c) => (
+                  <div key={c.id} style={styles.commentRow}>
+                    <div>
+                      <p style={{ margin: 0 }}>💬 {c.content}</p>
+
+                      {/* 🕒 COMMENT TIME */}
+                      <p style={styles.timeSmall}>
+                        {formatTime(c.created_at)}
+                      </p>
+                    </div>
+
+                    {user && user.id === c.user_id && (
+                      <button
+                        onClick={() => deleteComment(c.id)}
+                        style={styles.delete}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -225,16 +301,13 @@ const styles = {
   },
   back: {
     marginBottom: "10px",
-    background: "none",
-    border: "none",
     cursor: "pointer",
-    fontSize: "14px",
   },
   card: {
     background: "white",
     padding: "20px",
-    borderRadius: "12px",
-    marginBottom: "30px",
+    marginBottom: "20px",
+    borderRadius: "10px",
   },
   input: {
     width: "100%",
@@ -243,35 +316,23 @@ const styles = {
   },
   textarea: {
     width: "100%",
-    height: "100px",
     padding: "10px",
     marginBottom: "10px",
   },
   button: {
     width: "100%",
     padding: "10px",
-    background: "black",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
     cursor: "pointer",
   },
   post: {
     background: "white",
     padding: "15px",
-    borderRadius: "10px",
     marginBottom: "15px",
+    borderRadius: "10px",
   },
   actions: {
     display: "flex",
     justifyContent: "space-between",
-    marginTop: "10px",
-  },
-  likeBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "14px",
   },
   delete: {
     color: "red",
@@ -285,10 +346,20 @@ const styles = {
   commentInput: {
     width: "100%",
     padding: "8px",
-    marginTop: "5px",
   },
-  comment: {
-    fontSize: "13px",
-    marginTop: "5px",
+  commentRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginTop: "8px",
+  },
+  time: {
+    fontSize: "12px",
+    color: "gray",
+    marginBottom: "5px",
+  },
+  timeSmall: {
+    fontSize: "11px",
+    color: "gray",
+    margin: 0,
   },
 };
