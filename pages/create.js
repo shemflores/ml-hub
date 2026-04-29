@@ -30,7 +30,6 @@ export default function CreateArticle() {
     setLoading(false);
   };
 
-  // ✅ Fetch ONLY your own articles
   const fetchArticles = async (userId) => {
     const { data, error } = await supabase
       .from("articles")
@@ -41,7 +40,6 @@ export default function CreateArticle() {
     if (!error) setArticles(data);
   };
 
-  // ✅ Create Article
   const handleCreate = async () => {
     if (!title || !content) return alert("Fill all fields");
 
@@ -49,7 +47,7 @@ export default function CreateArticle() {
       {
         title,
         content,
-        user_id: user.id, // VERY IMPORTANT
+        user_id: user.id,
       },
     ]);
 
@@ -60,7 +58,6 @@ export default function CreateArticle() {
     }
   };
 
-  // ✅ Delete Article (ONLY your own)
   const handleDelete = async (id) => {
     const confirmDelete = confirm("Delete this article?");
     if (!confirmDelete) return;
@@ -82,7 +79,6 @@ export default function CreateArticle() {
       <div style={styles.container}>
         <h1 style={styles.title}>My Articles</h1>
 
-        {/* CREATE FORM */}
         <div style={styles.form}>
           <input
             type="text"
@@ -104,7 +100,6 @@ export default function CreateArticle() {
           </button>
         </div>
 
-        {/* ARTICLES LIST */}
         <div style={styles.list}>
           {articles.length === 0 && (
             <p style={{ color: "#888" }}>No articles yet.</p>
@@ -129,7 +124,6 @@ export default function CreateArticle() {
           ))}
         </div>
 
-        {/* BACK BUTTON */}
         <button onClick={() => router.push("/dashboard")} style={styles.back}>
           ← Back to Dashboard
         </button>
