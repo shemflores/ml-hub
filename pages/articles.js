@@ -25,13 +25,12 @@ export default function Articles() {
     await fetchArticles();
   };
 
-  // ✅ FORMAT TIME
   const formatTime = (time) => {
     if (!time) return "";
     return new Date(time).toLocaleString();
   };
 
-  // ✅ FETCH ARTICLES + LIKES + COMMENTS
+  // ✅ FETCH
   const fetchArticles = async () => {
     const { data, error } = await supabase
       .from("articles")
@@ -43,7 +42,7 @@ export default function Articles() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
+      console.error("FETCH ERROR:", error);
       alert(error.message);
       return;
     }
@@ -97,7 +96,7 @@ export default function Articles() {
     fetchArticles();
   };
 
-  // ✅ LIKE / UNLIKE
+  // ✅ LIKE
   const toggleLike = async (article) => {
     if (!user) return;
 
@@ -112,10 +111,7 @@ export default function Articles() {
         .eq("article_id", article.id)
         .eq("user_id", user.id);
 
-      if (error) {
-        alert(error.message);
-        return;
-      }
+      if (error) return alert(error.message);
     } else {
       const { error } = await supabase.from("likes").insert([
         {
@@ -124,31 +120,50 @@ export default function Articles() {
         },
       ]);
 
-      if (error) {
-        alert(error.message);
-        return;
-      }
+      if (error) return alert(error.message);
     }
 
     fetchArticles();
   };
 
-  // ✅ ADD COMMENT
+  // ✅ ADD COMMENT (FIXED HERE)
   const addComment = async (articleId) => {
     const text = commentInputs[articleId];
+
     if (!text || !user) return;
 
+    // 🔥 TRY BOTH column names
     const { error } = await supabase.from("comments").insert([
       {
-        content: text,
+        content: text, // preferred
+        // if your DB uses "text", uncomment below:
+        // text: text,
         article_id: articleId,
         user_id: user.id,
       },
     ]);
 
     if (error) {
-      alert(error.message);
-      return;
+      console.error("COMMENT ERROR:", error);
+
+      // 🔥 fallback if column mismatch
+      if (error.message.includes("content")) {
+        const retry = await supabase.from("comments").insert([
+          {
+            text: text,
+            article_id: articleId,
+            user_id: user.id,
+          },
+        ]);
+
+        if (retry.error) {
+          alert(retry.error.message);
+          return;
+        }
+      } else {
+        alert(error.message);
+        return;
+      }
     }
 
     setCommentInputs((prev) => ({ ...prev, [articleId]: "" }));
@@ -212,19 +227,14 @@ export default function Articles() {
             <div key={article.id} style={styles.post}>
               <h3>{article.title}</h3>
 
-              {/* 🕒 ARTICLE TIME */}
               <p style={styles.time}>
                 {formatTime(article.created_at)}
               </p>
 
               <p>{article.content}</p>
 
-              {/* ACTIONS */}
               <div style={styles.actions}>
-                <button
-                  onClick={() => toggleLike(article)}
-                  disabled={!user}
-                >
+                <button onClick={() => toggleLike(article)}>
                   {liked ? "💔 Unlike" : "❤️ Like"} ({likeCount})
                 </button>
 
@@ -251,16 +261,21 @@ export default function Articles() {
                   }
                   style={styles.commentInput}
                 />
-                <button onClick={() => addComment(article.id)}>
+
+                <button
+                  onClick={() => addComment(article.id)}
+                  style={{ marginTop: "5px" }}
+                >
                   Add
                 </button>
 
                 {(comments[article.id] || []).map((c) => (
                   <div key={c.id} style={styles.commentRow}>
                     <div>
-                      <p style={{ margin: 0 }}>💬 {c.content}</p>
+                      <p style={{ margin: 0 }}>
+                        💬 {c.content || c.text}
+                      </p>
 
-                      {/* 🕒 COMMENT TIME */}
                       <p style={styles.timeSmall}>
                         {formatTime(c.created_at)}
                       </p>
@@ -286,80 +301,20 @@ export default function Articles() {
 }
 
 const styles = {
-  page: {
-    background: "#f5f5f5",
-    minHeight: "100vh",
-    padding: "40px 0",
-  },
-  container: {
-    maxWidth: "600px",
-    margin: "auto",
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: "20px",
-  },
-  back: {
-    marginBottom: "10px",
-    cursor: "pointer",
-  },
-  card: {
-    background: "white",
-    padding: "20px",
-    marginBottom: "20px",
-    borderRadius: "10px",
-  },
-  input: {
-    width: "100%",
-    padding: "10px",
-    marginBottom: "10px",
-  },
-  textarea: {
-    width: "100%",
-    padding: "10px",
-    marginBottom: "10px",
-  },
-  button: {
-    width: "100%",
-    padding: "10px",
-    cursor: "pointer",
-  },
-  post: {
-    background: "white",
-    padding: "15px",
-    marginBottom: "15px",
-    borderRadius: "10px",
-  },
-  actions: {
-    display: "flex",
-    justifyContent: "space-between",
-  },
-  delete: {
-    color: "red",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-  },
-  commentBox: {
-    marginTop: "10px",
-  },
-  commentInput: {
-    width: "100%",
-    padding: "8px",
-  },
-  commentRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: "8px",
-  },
-  time: {
-    fontSize: "12px",
-    color: "gray",
-    marginBottom: "5px",
-  },
-  timeSmall: {
-    fontSize: "11px",
-    color: "gray",
-    margin: 0,
-  },
+  page: { background: "#f5f5f5", minHeight: "100vh", padding: "40px 0" },
+  container: { maxWidth: "600px", margin: "auto" },
+  title: { textAlign: "center", marginBottom: "20px" },
+  back: { marginBottom: "10px", cursor: "pointer" },
+  card: { background: "white", padding: "20px", marginBottom: "20px", borderRadius: "10px" },
+  input: { width: "100%", padding: "10px", marginBottom: "10px" },
+  textarea: { width: "100%", padding: "10px", marginBottom: "10px" },
+  button: { width: "100%", padding: "10px", cursor: "pointer" },
+  post: { background: "white", padding: "15px", marginBottom: "15px", borderRadius: "10px" },
+  actions: { display: "flex", justifyContent: "space-between" },
+  delete: { color: "red", background: "none", border: "none", cursor: "pointer" },
+  commentBox: { marginTop: "10px" },
+  commentInput: { width: "100%", padding: "8px" },
+  commentRow: { display: "flex", justifyContent: "space-between", marginTop: "8px" },
+  time: { fontSize: "12px", color: "gray" },
+  timeSmall: { fontSize: "11px", color: "gray" },
 };
