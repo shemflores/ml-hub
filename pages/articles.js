@@ -11,56 +11,111 @@ export default function Articles() {
   const [comments, setComments] = useState({});
 
   useEffect(() => {
-    getUser();
-    fetchArticles();
+    const init = async () => {
+      await getUser();
+      await fetchArticles();
+    };
+    init();
   }, []);
 
+  // ✅ GET USER
   const getUser = async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) window.location.href = "/login";
     else setUser(data.user);
   };
 
+  // ✅ FETCH ARTICLES + LIKE COUNT
   const fetchArticles = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("articles")
-      .select("*")
+      .select(`
+        *,
+        likes(count)
+      `)
       .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
 
     setArticles(data || []);
   };
 
+  // ✅ CREATE ARTICLE
   const createArticle = async () => {
-    if (!title || !content) return;
+    if (!title || !content || !user) return;
 
-    await supabase.from("articles").insert([
+    const { error } = await supabase.from("articles").insert([
       {
         title,
         content,
         user_id: user.id,
-        likes: 0,
       },
     ]);
+
+    if (error) {
+      console.error(error);
+      alert("Failed to post");
+      return;
+    }
 
     setTitle("");
     setContent("");
     fetchArticles();
   };
 
+  // ✅ DELETE ARTICLE (OWNER ONLY via RLS)
   const deleteArticle = async (id) => {
-    await supabase.from("articles").delete().eq("id", id);
-    fetchArticles();
-  };
-
-  const likeArticle = async (article) => {
-    await supabase
+    const { error } = await supabase
       .from("articles")
-      .update({ likes: (article.likes || 0) + 1 })
-      .eq("id", article.id);
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Delete failed");
+      return;
+    }
 
     fetchArticles();
   };
 
+  // ✅ LIKE ARTICLE (ONE LIKE PER USER)
+  const likeArticle = async (article) => {
+    if (!user) return;
+
+    // check if already liked
+    const { data: existing } = await supabase
+      .from("likes")
+      .select("*")
+      .eq("article_id", article.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existing) {
+      alert("Already liked");
+      return;
+    }
+
+    const { error } = await supabase.from("likes").insert([
+      {
+        article_id: article.id,
+        user_id: user.id,
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      alert("Like failed");
+      return;
+    }
+
+    fetchArticles();
+  };
+
+  // ✅ LOCAL COMMENTS (still frontend only)
   const addComment = (id, text) => {
     if (!text) return;
 
@@ -111,8 +166,11 @@ export default function Articles() {
 
             {/* ACTIONS */}
             <div style={styles.actions}>
-              <button onClick={() => likeArticle(article)}>
-                ❤️ {article.likes || 0}
+              <button
+                onClick={() => likeArticle(article)}
+                style={styles.likeBtn}
+              >
+                ❤️ {article.likes?.[0]?.count || 0}
               </button>
 
               {user?.id === article.user_id && (
@@ -125,7 +183,7 @@ export default function Articles() {
               )}
             </div>
 
-            {/* COMMENTS */}
+            {/* COMMENTS (frontend only) */}
             <div style={styles.commentBox}>
               <input
                 placeholder="Write a comment..."
@@ -208,6 +266,12 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     marginTop: "10px",
+  },
+  likeBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "14px",
   },
   delete: {
     color: "red",
