@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
 
       if (!data.user) {
-        window.location.href = "/login";
+        router.push("/login"); // ✅ better than window.location
       } else {
         setUser(data.user);
       }
@@ -21,7 +23,7 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    router.push("/login"); // ✅ better navigation
   };
 
   return (
@@ -36,10 +38,12 @@ export default function Dashboard() {
         )}
 
         <div style={styles.actions}>
-          <Link href="/articles">
+          {/* ✅ FIXED: goes to create.js */}
+          <Link href="/create">
             <button style={styles.primary}>Create Article</button>
           </Link>
 
+          {/* ✅ FIXED: goes to articles.js */}
           <Link href="/articles">
             <button style={styles.secondary}>Read Articles</button>
           </Link>
