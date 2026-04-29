@@ -1,164 +1,188 @@
-
+"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function CreateArticle() {
+export default function Articles() {
   const [user, setUser] = useState(null);
   const [articles, setArticles] = useState([]);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [commentInputs, setCommentInputs] = useState({});
 
   useEffect(() => {
     init();
   }, []);
 
-  const formatTime = (time) => {
-    if (!time) return "";
-    return new Date(time).toLocaleString();
-  };
-
   const init = async () => {
     const { data } = await supabase.auth.getUser();
 
-    if (!data.user) {
-      window.location.href = "/login";
+    if (!data?.user) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
       return;
     }
 
     setUser(data.user);
-    fetchMyArticles(data.user.id);
+    fetchArticles();
   };
 
-  const fetchMyArticles = async (userId) => {
+  const fetchArticles = async () => {
     const { data, error } = await supabase
       .from("articles")
-      .select("*")
-      .eq("user_id", userId)
+      .select(`
+        *,
+        likes(user_id),
+        comments(*)
+      `)
       .order("created_at", { ascending: false });
 
-    if (error) return alert(error.message);
+    if (error) {
+      console.error(error.message);
+      return;
+    }
 
     setArticles(data || []);
   };
 
-  const createArticle = async () => {
-    if (!title || !content) return;
+  const toggleLike = async (article) => {
+    const liked = article.likes?.some(
+      (l) => l.user_id === user?.id
+    );
 
-    const { error } = await supabase.from("articles").insert([
+    if (liked) {
+      await supabase
+        .from("likes")
+        .delete()
+        .eq("article_id", article.id)
+        .eq("user_id", user.id);
+    } else {
+      await supabase.from("likes").insert([
+        {
+          article_id: article.id,
+          user_id: user.id,
+        },
+      ]);
+    }
+
+    fetchArticles();
+  };
+
+  const addComment = async (articleId) => {
+    const text = commentInputs[articleId];
+    if (!text || !user) return;
+
+    await supabase.from("comments").insert([
       {
-        title,
-        content,
+        content: text,
+        article_id: articleId,
         user_id: user.id,
       },
     ]);
 
-    if (error) return alert(error.message);
+    setCommentInputs((prev) => ({
+      ...prev,
+      [articleId]: "",
+    }));
 
-    setTitle("");
-    setContent("");
-    fetchMyArticles(user.id);
-  };
-
-  const deleteArticle = async (id) => {
-    const { error } = await supabase
-      .from("articles")
-      .delete()
-      .eq("id", id);
-
-    if (error) return alert(error.message);
-
-    fetchMyArticles(user.id);
+    fetchArticles();
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <button
-          onClick={() => (window.location.href = "/dashboard")}
-          style={styles.back}
-        >
-          ← Back
-        </button>
+    <div style={container}>
+      <div style={card}>
+        <h1>All Articles</h1>
 
-        <h1>Create Article</h1>
+        {articles.map((article) => {
+          const likeCount = article.likes?.length || 0;
+          const liked = article.likes?.some(
+            (l) => l.user_id === user?.id
+          );
 
-        <div style={styles.card}>
-          <input
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={styles.input}
-          />
+          return (
+            <div key={article.id} style={articleBox}>
+              <h3>{article.title}</h3>
+              <p>{article.content}</p>
 
-          <textarea
-            placeholder="Write something..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            style={styles.textarea}
-          />
+              <button
+                onClick={() => toggleLike(article)}
+                style={buttonPrimary}
+              >
+                {liked ? "Unlike" : "Like"} ({likeCount})
+              </button>
 
-          <button onClick={createArticle} style={styles.button}>
-            Post Article
-          </button>
-        </div>
+              <div style={{ marginTop: "10px" }}>
+                <input
+                  placeholder="Comment..."
+                  value={commentInputs[article.id] || ""}
+                  onChange={(e) =>
+                    setCommentInputs((prev) => ({
+                      ...prev,
+                      [article.id]: e.target.value,
+                    }))
+                  }
+                  style={input}
+                />
 
-        <h2>My Articles</h2>
+                <button
+                  onClick={() => addComment(article.id)}
+                  style={buttonSecondary}
+                >
+                  Add
+                </button>
 
-        {articles.map((a) => (
-          <div key={a.id} style={styles.post}>
-            <h3>{a.title}</h3>
-
-            <p style={styles.time}>
-              🕒 {formatTime(a.created_at)}
-            </p>
-
-            <p>{a.content}</p>
-
-            <button
-              onClick={() => deleteArticle(a.id)}
-              style={styles.delete}
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+                {article.comments?.map((c) => (
+                  <p key={c.id}>💬 {c.content}</p>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-const styles = {
-  page: { background: "#f5f5f5", minHeight: "100vh", padding: "30px" },
-  container: { maxWidth: "600px", margin: "auto" },
-  back: { marginBottom: "15px", cursor: "pointer" },
-  card: {
-    background: "white",
-    padding: "20px",
-    borderRadius: "10px",
-    marginBottom: "20px",
-  },
-  input: { width: "100%", padding: "10px", marginBottom: "10px" },
-  textarea: { width: "100%", padding: "10px", marginBottom: "10px" },
-  button: {
-    width: "100%",
-    padding: "10px",
-    background: "#4CAF50",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-  },
-  post: {
-    background: "white",
-    padding: "15px",
-    marginBottom: "10px",
-    borderRadius: "10px",
-  },
-  time: { fontSize: "12px", color: "gray" },
-  delete: {
-    color: "red",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-  },
+// styles
+const container = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  background: "#f3f4f6",
+  padding: "20px",
+};
+
+const card = {
+  width: "600px",
+};
+
+const articleBox = {
+  background: "#fff",
+  padding: "15px",
+  borderRadius: "10px",
+  marginBottom: "15px",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
+};
+
+const buttonPrimary = {
+  padding: "8px 12px",
+  border: "none",
+  borderRadius: "6px",
+  background: "#2563eb",
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const buttonSecondary = {
+  marginLeft: "10px",
+  padding: "8px 12px",
+  border: "1px solid #ccc",
+  borderRadius: "6px",
+  background: "#f9f9f9",
+  cursor: "pointer",
+};
+
+const input = {
+  padding: "8px",
+  borderRadius: "6px",
+  border: "1px solid #ccc",
 };
