@@ -9,7 +9,6 @@ export default function Dashboard() {
       const { data } = await supabase.auth.getUser();
 
       if (!data.user) {
-        // ❌ Not logged in → redirect
         window.location.href = "/login";
       } else {
         setUser(data.user);
@@ -25,32 +24,87 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={styles.container}>
-      <h1>Welcome 🎉</h1>
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <h1 style={styles.title}>Dashboard</h1>
 
-      {user && <p>{user.email}</p>}
+        {user && <p style={styles.email}>{user.email}</p>}
 
-      <button onClick={handleLogout} style={styles.button}>
-        Logout
-      </button>
+        <div style={styles.actions}>
+          <button
+            style={styles.primary}
+            onClick={() => (window.location.href = "/articles")}
+          >
+            📄 View Articles
+          </button>
+
+          <button
+            style={styles.secondary}
+            onClick={() => (window.location.href = "/articles")}
+          >
+            ✍️ Create Article
+          </button>
+
+          <button style={styles.logout} onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
+  page: {
     height: "100vh",
     display: "flex",
-    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
+    background: "#f4f4f4",
+    fontFamily: "Arial, sans-serif",
   },
-  button: {
+  card: {
+    background: "#fff",
+    padding: "40px",
+    borderRadius: "12px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+    textAlign: "center",
+    width: "320px",
+  },
+  title: {
+    marginBottom: "10px",
+  },
+  email: {
+    fontSize: "14px",
+    color: "gray",
+  },
+  actions: {
     marginTop: "20px",
-    padding: "10px 20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  primary: {
+    padding: "10px",
     background: "black",
     color: "white",
     border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  secondary: {
+    padding: "10px",
+    background: "#eee",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  logout: {
+    padding: "10px",
+    background: "#ff4d4d",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
     cursor: "pointer",
   },
 };
