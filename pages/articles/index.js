@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";  // Adjusted path
 import { useRouter } from "next/router";
-import { formatDistanceToNowStrict } from "date-fns";  // npm i date-fns
 
 export default function Articles() {
   const [user, setUser] = useState(null);
@@ -40,8 +39,8 @@ export default function Articles() {
 
     setArticles(data || []);
 
-    // Make async calls awaitable
-    await Promise.all([fetchLikes(userId), fetchComments()]);
+    fetchLikes(userId);
+    fetchComments();
   };
 
   const fetchLikes = async (userId) => {
@@ -49,7 +48,7 @@ export default function Articles() {
 
     let likeMap = {};
 
-    data?.forEach((like) => {
+    data.forEach((like) => {
       if (!likeMap[like.article_id]) {
         likeMap[like.article_id] = {
           count: 0,
@@ -75,7 +74,7 @@ export default function Articles() {
 
     let grouped = {};
 
-    data?.forEach((c) => {
+    data.forEach((c) => {
       if (!grouped[c.article_id]) grouped[c.article_id] = [];
       grouped[c.article_id].push(c);
     });
@@ -99,35 +98,32 @@ export default function Articles() {
       });
     }
 
-    await fetchLikes(user.id);  // Await refresh
+    fetchLikes(user.id);
   };
 
   const addComment = async (articleId) => {
     const text = commentInputs[articleId];
-    if (!text?.trim()) return;
+    if (!text) return;
 
     await supabase.from("comments").insert({
-      content: text.trim(),
+      content: text,
       article_id: articleId,
       user_id: user.id,
     });
 
     setCommentInputs({ ...commentInputs, [articleId]: "" });
-    await fetchComments();  // Await refresh
+    fetchComments();
   };
 
   const deleteComment = async (commentId) => {
-    if (!confirm("Delete this comment?")) return;
+    const confirmDelete = confirm("Delete this comment?");
+    if (!confirmDelete) return;
 
     await supabase.from("comments").delete().eq("id", commentId);
-    await fetchComments();
+    fetchComments();
   };
 
-  if (loading) return <p style={{ textAlign: "center", padding: "40px" }}>Loading...</p>;
-
-  const formatTime = (timestamp) => {
-    return formatDistanceToNowStrict(new Date(timestamp), { addSuffix: true });
-  };
+  if (loading) return <p style={{ textAlign: "center" }}>Loading...</p>;
 
   return (
     <div style={styles.page}>
@@ -135,15 +131,18 @@ export default function Articles() {
         <h1 style={styles.title}>All Articles</h1>
 
         {articles.map((article) => {
-          const articleLikes = likes[article.id] || { count: 0, liked: false };
+          const articleLikes = likes[article.id] || {
+            count: 0,
+            liked: false,
+          };
 
           return (
             <div key={article.id} style={styles.card}>
               <h2>{article.title}</h2>
-              <p style={styles.content}>{article.content}</p>
+              <p>{article.content}</p>
 
               <small style={styles.date}>
-                Posted {formatTime(article.created_at)}
+                {new Date(article.created_at).toLocaleString()}
               </small>
 
               <div style={styles.likeRow}>
@@ -157,28 +156,29 @@ export default function Articles() {
                 >
                   {articleLikes.liked ? "Unlike" : "Like"}
                 </button>
+
                 <span>{articleLikes.count} likes</span>
               </div>
 
               <div style={styles.comments}>
-                <h4>Comments ({(comments[article.id] || []).length})</h4>
+                <h4>Comments</h4>
 
                 {(comments[article.id] || []).map((c) => (
                   <div key={c.id} style={styles.comment}>
                     <p>{c.content}</p>
-                    <div style={styles.commentFooter}>
-                      <small style={styles.date}>
-                        {formatTime(c.created_at)}
-                      </small>
-                      {c.user_id === user.id && (
-                        <button
-                          onClick={() => deleteComment(c.id)}
-                          style={styles.deleteComment}
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
+
+                    <small style={styles.date}>
+                      {new Date(c.created_at).toLocaleString()}
+                    </small>
+
+                    {c.user_id === user.id && (
+                      <button
+                        onClick={() => deleteComment(c.id)}
+                        style={styles.deleteComment}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 ))}
 
@@ -195,6 +195,7 @@ export default function Articles() {
                     }
                     style={styles.input}
                   />
+
                   <button
                     onClick={() => addComment(article.id)}
                     style={styles.postComment}
@@ -215,12 +216,11 @@ export default function Articles() {
   );
 }
 
-// Enhanced styles with better spacing
 const styles = {
   page: {
     minHeight: "100vh",
     background: "#f4f6f8",
-    padding: "30px 20px",
+    padding: "30px",
     display: "flex",
     justifyContent: "center",
   },
@@ -230,94 +230,72 @@ const styles = {
   },
   title: {
     textAlign: "center",
-    marginBottom: "30px",
-    color: "#333",
+    marginBottom: "20px",
   },
   card: {
     background: "white",
-    padding: "24px",
+    padding: "20px",
     borderRadius: "12px",
-    marginBottom: "24px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-  },
-  content: {
-    lineHeight: 1.6,
-    marginBottom: "12px",
+    marginBottom: "20px",
+    boxShadow: "0 5px 15px rgba(0,0,0,0.05)",
   },
   date: {
-    fontSize: "13px",
-    color: "#888",
-    fontWeight: 500,
+    fontSize: "12px",
+    color: "#777",
   },
   likeRow: {
     display: "flex",
     alignItems: "center",
-    gap: "12px",
-    margin: "16px 0",
+    gap: "10px",
+    marginTop: "10px",
   },
   likeBtn: {
-    padding: "8px 16px",
-    borderRadius: "8px",
+    padding: "5px 10px",
+    borderRadius: "6px",
     border: "none",
-    fontWeight: 500,
     cursor: "pointer",
-    transition: "all 0.2s",
   },
   comments: {
-    marginTop: "24px",
+    marginTop: "20px",
   },
   comment: {
-    background: "#f8f9fa",
-    padding: "16px",
-    borderRadius: "10px",
-    marginBottom: "16px",
-    borderLeft: "3px solid #007bff",
-  },
-  commentFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "8px",
+    background: "#f9f9f9",
+    padding: "10px",
+    borderRadius: "8px",
+    marginBottom: "10px",
   },
   deleteComment: {
+    marginTop: "5px",
     fontSize: "12px",
-    color: "#dc3545",
+    color: "red",
     background: "none",
-    border: "1px solid #dc3545",
-    padding: "4px 8px",
-    borderRadius: "4px",
+    border: "none",
     cursor: "pointer",
   },
   commentBox: {
     display: "flex",
-    gap: "12px",
-    marginTop: "12px",
+    gap: "10px",
+    marginTop: "10px",
   },
   input: {
     flex: 1,
-    padding: "12px 16px",
-    borderRadius: "8px",
+    padding: "8px",
+    borderRadius: "6px",
     border: "1px solid #ddd",
-    fontSize: "14px",
   },
   postComment: {
-    padding: "12px 20px",
-    background: "#000",
-    color: "#fff",
+    padding: "8px 12px",
+    background: "black",
+    color: "white",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "6px",
     cursor: "pointer",
-    fontWeight: 500,
   },
   back: {
-    display: "block",
-    margin: "32px auto 0",
+    marginTop: "20px",
     background: "none",
-    border: "1px solid #ddd",
+    border: "none",
     color: "#555",
-    padding: "12px 24px",
-    borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "14px",
   },
 };
