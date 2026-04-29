@@ -5,7 +5,6 @@ import { supabase } from "../lib/supabaseClient";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkUser();
@@ -20,7 +19,6 @@ export default function Dashboard() {
     }
 
     setUser(data.user);
-    setLoading(false);
   };
 
   const logout = async () => {
@@ -28,45 +26,83 @@ export default function Dashboard() {
     window.location.href = "/login";
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-500">
-        Loading...
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
-      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md text-center">
-        <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
-        <p className="text-gray-600 mb-6">
-          Welcome back, <span className="font-medium">{user?.email}</span>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        background: "linear-gradient(to bottom right, #f3f4f6, #ffffff)",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          padding: "30px",
+          borderRadius: "12px",
+          boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+          width: "320px",
+          textAlign: "center",
+        }}
+      >
+        <h1 style={{ marginBottom: "10px" }}>Dashboard</h1>
+
+        <p style={{ color: "#555", marginBottom: "20px" }}>
+          Welcome, <strong>{user?.email}</strong>
         </p>
 
-        <div className="space-y-4">
-          <button
-            onClick={() => (window.location.href = "/create-article")}
-            className="w-full py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition"
-          >
-            📝 My Articles
-          </button>
+        <button
+          onClick={() => (window.location.href = "/create-article")}
+          style={buttonPrimary}
+        >
+          📝 My Articles
+        </button>
 
-          <button
-            onClick={() => (window.location.href = "/articles")}
-            className="w-full py-2 rounded-xl bg-green-500 text-white hover:bg-green-600 transition"
-          >
-            🌍 View All Articles
-          </button>
+        <button
+          onClick={() => (window.location.href = "/articles")}
+          style={buttonSecondary}
+        >
+          🌍 View All Articles
+        </button>
 
-          <button
-            onClick={logout}
-            className="w-full py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition"
-          >
-            Logout
-          </button>
-        </div>
+        <button onClick={logout} style={buttonDanger}>
+          Logout
+        </button>
       </div>
     </div>
   );
 }
+
+// ✨ Button styles (clean + reusable)
+const buttonPrimary = {
+  width: "100%",
+  padding: "10px",
+  marginBottom: "10px",
+  borderRadius: "8px",
+  border: "none",
+  background: "#2563eb",
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const buttonSecondary = {
+  width: "100%",
+  padding: "10px",
+  marginBottom: "10px",
+  borderRadius: "8px",
+  border: "1px solid #ccc",
+  background: "#f9f9f9",
+  cursor: "pointer",
+};
+
+const buttonDanger = {
+  width: "100%",
+  padding: "10px",
+  borderRadius: "8px",
+  border: "none",
+  background: "#ef4444",
+  color: "#fff",
+  cursor: "pointer",
+};
